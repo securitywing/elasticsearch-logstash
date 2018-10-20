@@ -1,0 +1,82 @@
+---
+# tasks file for elk
+  - name: install java
+    package: name={{ item }} state=present
+    with_items:
+      - java-1.8.0-openjdk
+
+  - name: Download and install the public signing key
+    command: "rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch"
+
+  - name: add  elasticsearch repo
+    copy:
+      src: elasticsearch.repo
+      dest: /etc/yum.repos.d
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: install elastic search
+    package: name=elasticsearch state=present
+
+  - name: elasticsearch.yml network setttings
+    lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^#network.host'
+        line: 'network.host: {{ elasticsearch_internal_ip }}'
+        state: present
+        backrefs: yes
+
+  - name: elasticsearch.yml http.port setttings
+    lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^#http.port:'
+        line: 'http.port: 9200'
+        state: present
+        backrefs: yes
+
+  - name: MAX_LOCKED_MEMORY
+    lineinfile:
+        path: /etc/sysconfig/elasticsearch
+        regexp: '^#MAX_LOCKED_MEMORY=unlimited'
+        line: 'MAX_LOCKED_MEMORY=unlimited'
+        state: present
+        backrefs: yes
+
+  - name: Starting and enabling Elasticsearch with systemd
+    command: "{{ item }}"
+    with_items:
+      - /bin/systemctl daemon-reload
+      - /bin/systemctl enable elasticsearch.service
+      - systemctl restart elasticsearch.service
+
+  - name: add logstash repo
+    copy:
+      src: logstash.repo
+      dest: /etc/yum.repos.d
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: install logstash
+    package: name=logstash state=present
+
+
+#  Configure Logstash input, output, and filter
+  - name: Configure Logstash input, filters adn output
+    copy:
+       src: logstash.conf
+       dest: /etc/logstash/conf.d
+       owner: root
+       group: root
+       mode: 0644
+
+  - name: adding logstash to root group for access to /var/log/* files
+    command: "usermod -a -G root logstash"
+
+  - name: starting and enabling logstash
+    command: "{{ item }}"
+    with_items:
+      - systemctl daemon-reload
+      - systemctl start logstash
+      - systemctl enable logstash

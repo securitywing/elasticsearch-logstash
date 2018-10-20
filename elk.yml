@@ -1,0 +1,6 @@
+---
+- hosts: localhost
+  vars:
+    elasticsearch_internal_ip: <type your elasticsearch instance IP>
+  roles:
+     - elk
